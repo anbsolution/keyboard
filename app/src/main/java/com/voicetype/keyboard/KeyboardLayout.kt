@@ -2,8 +2,7 @@ package com.voicetype.keyboard
 
 object KeyboardLayout {
     val englishRows = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
-    val symbolRows = listOf("1234567890", "@#\$%&*-+()")
-
+    val symbolRows = listOf("1234567890", "@#$%&*-+()")
     private val hindiMap = mapOf(
         'q' to "ौ", 'w' to "ै", 'e' to "ा", 'r' to "ी", 't' to "ू",
         'y' to "ब", 'u' to "ह", 'i' to "ग", 'o' to "द", 'p' to "ज",
@@ -12,13 +11,11 @@ object KeyboardLayout {
         'z' to "ं", 'x' to "म", 'c' to "न", 'v' to "व", 'b' to "ल",
         'n' to "स", 'm' to "य"
     )
-
     fun outputFor(key: Char, hindiMode: Boolean, symbolsMode: Boolean, shift: Boolean): String {
         if (symbolsMode) return key.toString()
         if (hindiMode) return hindiMap[key.lowercaseChar()] ?: key.toString()
         return if (shift) key.uppercaseChar().toString() else key.toString()
     }
-
-    fun labelFor(key: Char, hindiMode: Boolean, symbolsMode: Boolean, shift: Boolean): String =
+    fun labelFor(key: Char, hindiMode: Boolean, symbolsMode: Boolean, shift: Boolean) =
         outputFor(key, hindiMode, symbolsMode, shift)
 }
