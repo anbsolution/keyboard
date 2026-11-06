@@ -1,10 +1,11 @@
 package com.voicetype.keyboard
 
-import android.inputmethodservice.InputMethodService
 import android.graphics.Color
 import android.graphics.Typeface
-import android.view.View
+import android.inputmethodservice.InputMethodService
 import android.view.Gravity
+import android.view.KeyEvent
+import android.view.View
 import android.view.inputmethod.InputConnection
 import android.widget.Button
 import android.widget.LinearLayout
@@ -15,9 +16,7 @@ class KeyboardService : InputMethodService() {
     private var hindiMode = false
     private var symbolsMode = false
 
-    override fun onCreateInputView(): View {
-        return buildKeyboard()
-    }
+    override fun onCreateInputView(): View = buildKeyboard()
 
     private fun buildKeyboard(): View {
         val root = LinearLayout(this).apply {
@@ -27,53 +26,57 @@ class KeyboardService : InputMethodService() {
         }
 
         val top = row()
-        top.addView(key("EN/हि", 1.25f) {
+        top.addView(key(if (hindiMode) "हि" else "EN", 1.25f) {
             hindiMode = !hindiMode
             symbolsMode = false
-            setInputView(buildKeyboard())
+            refreshKeyboard()
         })
         top.addView(key("🎙", 1f) {
-            Toast.makeText(this, "Offline voice engine Phase 2 में जोड़ा जाएगा", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Offline voice typing will be added in Phase 2", Toast.LENGTH_SHORT).show()
         })
         top.addView(key("⚙", 1f) {
-            Toast.makeText(this, "Keyboard settings अगली update में आएँगी", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Keyboard settings will be added in a later update", Toast.LENGTH_SHORT).show()
         })
         root.addView(top)
 
-        val rows = if (symbolsMode) {
-            listOf("1234567890", "@#\$%&*-+()")
-        } else KeyboardLayout.englishRows
-
+        val rows = if (symbolsMode) KeyboardLayout.symbolRows else KeyboardLayout.englishRows
         rows.forEachIndexed { index, chars ->
             val line = row()
             if (index == 2 && !symbolsMode) {
-                line.addView(key("⇧", 1.25f) { shift = !shift; setInputView(buildKeyboard()) })
+                line.addView(key("⇧", 1.25f) {
+                    shift = !shift
+                    refreshKeyboard()
+                })
             }
             chars.forEach { char ->
-                val label = if (shift && !hindiMode) char.uppercaseChar().toString() else char.toString()
-                line.addView(key(label, 1f) { commitKey(char) })
+                val label = KeyboardLayout.labelFor(char, hindiMode, symbolsMode, shift)
+                line.addView(key(label, 1f) {
+                    commitText(KeyboardLayout.outputFor(char, hindiMode, symbolsMode, shift))
+                    if (shift && !hindiMode && !symbolsMode) {
+                        shift = false
+                        refreshKeyboard()
+                    }
+                })
             }
             if (index == 2 && !symbolsMode) {
-                line.addView(key("⌫", 1.25f) {
-                    currentInputConnection?.deleteSurroundingText(1, 0)
-                })
+                line.addView(key("⌫", 1.25f) { deletePreviousCharacter() })
             }
             root.addView(line)
         }
 
         val bottom = row()
-        bottom.addView(key(if (symbolsMode) "ABC" else "?123", 1.3f) {
+        bottom.addView(key(if (symbolsMode) "ABC" else "?123", 1.25f) {
             symbolsMode = !symbolsMode
-            setInputView(buildKeyboard())
+            refreshKeyboard()
         })
         bottom.addView(key(",", 0.8f) { commitText(",") })
-        bottom.addView(key("English/Hindi", 1.2f) {
+        bottom.addView(key(if (hindiMode) "हि" else "EN", 1.1f) {
             hindiMode = !hindiMode
-            setInputView(buildKeyboard())
+            refreshKeyboard()
         })
-        bottom.addView(key("space", 3.8f) { commitText(" ") })
+        bottom.addView(key("space", 3.2f) { commitText(" ") })
         bottom.addView(key(".", 0.8f) { commitText(".") })
-        bottom.addView(key("↵", 1.2f) { sendEnter() })
+        bottom.addView(key("↵", 1.1f) { sendEnter() })
         root.addView(bottom)
         return root
     }
@@ -92,30 +95,27 @@ class KeyboardService : InputMethodService() {
             setBackgroundColor(Color.WHITE)
             typeface = Typeface.DEFAULT
             setPadding(1, 2, 1, 2)
-            val p = LinearLayout.LayoutParams(0, 48, weight)
-            p.setMargins(2, 3, 2, 3)
-            layoutParams = p
+            layoutParams = LinearLayout.LayoutParams(0, 48, weight).apply {
+                setMargins(2, 3, 2, 3)
+            }
             setOnClickListener { action() }
         }
-
-    private fun commitKey(key: Char) {
-        val text = if (hindiMode) KeyboardLayout.hindiCharacter(key) else {
-            if (shift) key.uppercaseChar().toString() else key.toString()
-        }
-        commitText(text)
-        if (shift) {
-            shift = false
-            setInputView(buildKeyboard())
-        }
-    }
 
     private fun commitText(text: String) {
         currentInputConnection?.commitText(text, 1)
     }
 
+    private fun deletePreviousCharacter() {
+        currentInputConnection?.deleteSurroundingText(1, 0)
+    }
+
     private fun sendEnter() {
-        val ic: InputConnection = currentInputConnection ?: return
-        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_ENTER))
-        ic.sendKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_ENTER))
+        val connection: InputConnection = currentInputConnection ?: return
+        connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+        connection.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+    }
+
+    private fun refreshKeyboard() {
+        setInputView(buildKeyboard())
     }
 }
