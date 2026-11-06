@@ -266,7 +266,10 @@ class KeyboardService : InputMethodService(), RecognitionListener {
             menu.add("Key height: Standard").setOnMenuItemClickListener { prefs.edit().putInt("ultra_key_height", 44).apply(); refreshKeyboard(); true }
             menu.add("Key height: Large").setOnMenuItemClickListener { prefs.edit().putInt("ultra_key_height", 50).apply(); refreshKeyboard(); true }
             menu.add("Smart Learning Dictionary").setOnMenuItemClickListener {
-                startActivity(Intent(this, SmartDictionaryActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+                val dictionaryIntent = Intent(this@KeyboardService, SmartDictionaryActivity::class.java)
+                dictionaryIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                startActivity(dictionaryIntent)
+                true
             }
             show()
         }
