@@ -2,4 +2,5 @@
 <input-method xmlns:android="http://schemas.android.com/apk/res/android">
     <subtype android:label="English" android:imeSubtypeLocale="en_US" android:imeSubtypeMode="keyboard" />
     <subtype android:label="Hindi" android:imeSubtypeLocale="hi_IN" android:imeSubtypeMode="keyboard" />
+    <subtype android:label="Punjabi" android:imeSubtypeLocale="pa_IN" android:imeSubtypeMode="keyboard" />
 </input-method>

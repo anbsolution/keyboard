@@ -25,55 +25,56 @@ class MainActivity : Activity() {
         val page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(24, 32, 24, 24)
+            setPadding(24, 28, 24, 24)
             setBackgroundColor(0xFFF7F9FD.toInt())
         }
         page.addView(TextView(this).apply {
-            text = "Voice Keyboard 1.1.0"
+            text = "Voice Keyboard 1.2.0"
             textSize = 27f
             setTextColor(0xFF173B70.toInt())
             gravity = Gravity.CENTER
         })
         page.addView(TextView(this).apply {
-            text = "English + Hindi typing with speech input"
-            textSize = 15f
+            text = "Hindi • English • Punjabi | Voice typing | Clipboard tools"
+            textSize = 14f
             setTextColor(0xFF444444.toInt())
-            setPadding(0, 12, 0, 24)
+            setPadding(0, 12, 0, 20)
         })
         page.addView(actionButton("Grant microphone permission") {
             if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Microphone permission already granted", Toast.LENGTH_SHORT).show()
             } else requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_AUDIO)
         })
-        page.addView(actionButton("1. Enable keyboard") {
-            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-        })
+        page.addView(actionButton("1. Enable keyboard") { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) })
         page.addView(actionButton("2. Select Voice Keyboard") {
             (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         })
         page.addView(actionButton("Theme: ${prefs.getString("theme", "Light")} (tap to change)") {
             val next = when (prefs.getString("theme", "Light")) {
-                "Light" -> "Dark"
-                "Dark" -> "Blue"
-                else -> "Light"
+                "Light" -> "Dark"; "Dark" -> "Blue"; else -> "Light"
             }
             prefs.edit().putString("theme", next).apply()
             render()
         })
+        page.addView(actionButton("Keyboard layout: ${prefs.getString("layout_language", "English")} (tap to change)") {
+            val next = when (prefs.getString("layout_language", "English")) {
+                "English" -> "Hindi"; "Hindi" -> "Punjabi"; else -> "English"
+            }
+            prefs.edit().putString("layout_language", next).apply()
+            render()
+        })
         page.addView(actionButton("Voice language: ${prefs.getString("voice_language", "Auto")} (tap to change)") {
             val next = when (prefs.getString("voice_language", "Auto")) {
-                "Auto" -> "Hindi"
-                "Hindi" -> "English"
-                else -> "Auto"
+                "Auto" -> "Hindi"; "Hindi" -> "English"; "English" -> "Punjabi"; else -> "Auto"
             }
             prefs.edit().putString("voice_language", next).apply()
             render()
         })
         page.addView(TextView(this).apply {
-            text = "Privacy: the microphone is used only after permission is granted and you tap the voice key. Speech recognition depends on the Android recognition service and its language/offline support."
+            text = "Privacy: microphone starts only after permission and a tap on Voice. Clipboard history is stored locally and updated when you tap the clipboard button. Speech language support depends on your Android recognition provider; Hinglish is best-effort, not guaranteed."
             textSize = 13f
             setTextColor(0xFF666666.toInt())
-            setPadding(0, 22, 0, 0)
+            setPadding(0, 20, 0, 0)
         })
         setContentView(page)
     }
@@ -84,7 +85,7 @@ class MainActivity : Activity() {
         setOnClickListener { action() }
         layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { bottomMargin = 10 }
+        ).apply { bottomMargin = 9 }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

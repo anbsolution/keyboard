@@ -1,20 +1,21 @@
-# Voice Keyboard v1.1.0
+# Voice Keyboard v1.2.0
 
-Android English/Hindi keyboard with speech-to-text input using the device's Android speech recognition service.
+Android input method for English, Hindi and Punjabi layouts, with optional voice input, local clipboard history and text-editing shortcuts.
 
-## What's new
-- Hindi and English voice typing using Android SpeechRecognizer.
-- Microphone permission requested from the app screen before voice use.
-- Voice button starts recognition; recognized text is inserted into the focused text field.
-- Light, Dark, and Blue keyboard themes.
-- Settings screen for theme and voice-language preference.
-- Existing application ID retained: `com.voicetype.keyboard`.
+## v1.2.0 updates
+- English, Hindi and Punjabi keyboard layout selector.
+- Voice language selector for Auto, Hindi, English and Punjabi.
+- Hinglish voice typing is best-effort through the selected Android speech recognition provider; mixed-language accuracy is not guaranteed.
+- Clipboard menu stores up to 20 recent entries locally. It reads the current clipboard only when the user taps the clipboard button; it does not monitor clipboard in the background.
+- Quick actions: select all, delete previous word, paste, cursor left/right.
+- Light, Dark and Blue themes retained.
+- Existing application ID preserved: `com.voicetype.keyboard`.
 
-## Privacy and availability
-- Microphone access is used only after the user grants Android's `RECORD_AUDIO` permission and taps the voice button.
-- Speech recognition is provided by the Android device's installed recognition service. Depending on device settings and provider, audio may be processed on-device or by that provider; this app does not promise offline recognition.
-- No app-owned server or analytics endpoint is used.
-- Recognition availability and supported languages depend on the device/provider.
+## Privacy and compatibility
+- Microphone is used only after permission and an explicit Voice-button tap.
+- Recognition availability, language support and offline operation depend on the Android recognition service and device settings.
+- Clipboard history is stored in app-private preferences on the device. It is not uploaded.
+- Clipboard access is user-initiated; Android may display clipboard access indicators depending on OS version.
 
 ## Build
-GitHub Actions workflow runs unit tests and assembles a debug APK. Tests are included but have intentionally not been run as part of this prepared source handoff.
+GitHub Actions runs unit tests before assembling the debug APK.
