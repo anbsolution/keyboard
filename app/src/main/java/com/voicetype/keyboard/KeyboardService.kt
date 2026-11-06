@@ -33,14 +33,23 @@ class KeyboardService : InputMethodService(), RecognitionListener {
     private fun buildKeyboard(): View {
         val prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE)
         language = prefs.getString("layout_language", "English") ?: "English"
-        val theme = prefs.getString("theme", "Light")
+        val theme = prefs.getString("theme", "Light") ?: "Light"
+        val customBg = prefs.getString("custom_theme_background", null)
+        val customKeyBg = prefs.getString("custom_theme_key_background", null)
+        val customFg = prefs.getString("custom_theme_foreground", null)
+        fun safeColor(value: String?, fallback: Int): Int = try {
+            if (value != null && Regex("^#[0-9A-Fa-f]{6}$").matches(value)) Color.parseColor(value) else fallback
+        } catch (_: IllegalArgumentException) { fallback }
         val bg = when (theme) {
             "Dark" -> Color.rgb(35, 39, 47)
             "Blue" -> Color.rgb(20, 54, 100)
+            "Custom" -> safeColor(customBg, Color.rgb(232, 237, 246))
             else -> Color.rgb(232, 237, 246)
         }
-        val keyBg = if (theme == "Dark") Color.rgb(67, 73, 84) else Color.WHITE
-        val fg = if (theme == "Dark") Color.WHITE else Color.rgb(24, 43, 72)
+        val keyBg = if (theme == "Custom") safeColor(customKeyBg, Color.WHITE)
+            else if (theme == "Dark") Color.rgb(67, 73, 84) else Color.WHITE
+        val fg = if (theme == "Custom") safeColor(customFg, Color.rgb(24, 43, 72))
+            else if (theme == "Dark") Color.WHITE else Color.rgb(24, 43, 72)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(4, 7, 4, 7)
