@@ -4,8 +4,6 @@ object KeyboardLayout {
     val englishRows = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
     val symbolRows = listOf("1234567890", "@#\$%&*-+()")
 
-    // Hindi labels are shown on the corresponding QWERTY positions.
-    // Dependent vowel signs are used as on a conventional Hindi layout.
     private val hindiMap = mapOf(
         'q' to "ौ", 'w' to "ै", 'e' to "ा", 'r' to "ी", 't' to "ू",
         'y' to "ब", 'u' to "ह", 'i' to "ग", 'o' to "द", 'p' to "ज",

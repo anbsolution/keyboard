@@ -11,25 +11,25 @@ class KeyboardLayoutTest {
 
     @Test
     fun hindiModeOutputsDevanagariCharacters() {
-        assertEquals("क", KeyboardLayout.outputFor('k', hindiMode = true, symbolsMode = false, shift = false))
-        assertEquals("य", KeyboardLayout.outputFor('m', hindiMode = true, symbolsMode = false, shift = false))
-        assertEquals("ौ", KeyboardLayout.outputFor('q', hindiMode = true, symbolsMode = false, shift = false))
+        assertEquals("क", KeyboardLayout.outputFor('k', true, false, false))
+        assertEquals("य", KeyboardLayout.outputFor('m', true, false, false))
+        assertEquals("ौ", KeyboardLayout.outputFor('q', true, false, false))
     }
 
     @Test
     fun symbolModeAlwaysOutputsLiteralSymbol() {
-        assertEquals("@", KeyboardLayout.outputFor('@', hindiMode = true, symbolsMode = true, shift = false))
-        assertEquals("7", KeyboardLayout.outputFor('7', hindiMode = true, symbolsMode = true, shift = false))
+        assertEquals("@", KeyboardLayout.outputFor('@', true, true, false))
+        assertEquals("7", KeyboardLayout.outputFor('7', true, true, false))
     }
 
     @Test
     fun englishShiftIsApplied() {
-        assertEquals("A", KeyboardLayout.outputFor('a', hindiMode = false, symbolsMode = false, shift = true))
-        assertEquals("a", KeyboardLayout.outputFor('a', hindiMode = false, symbolsMode = false, shift = false))
+        assertEquals("A", KeyboardLayout.outputFor('a', false, false, true))
+        assertEquals("a", KeyboardLayout.outputFor('a', false, false, false))
     }
 
     @Test
     fun hindiModeDoesNotUppercaseCharacters() {
-        assertEquals("क", KeyboardLayout.outputFor('k', hindiMode = true, symbolsMode = false, shift = true))
+        assertEquals("क", KeyboardLayout.outputFor('k', true, false, true))
     }
 }
