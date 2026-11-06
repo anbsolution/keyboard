@@ -29,7 +29,7 @@ class MainActivity : Activity() {
             setBackgroundColor(0xFFF7F9FD.toInt())
         }
         page.addView(TextView(this).apply {
-            text = "Voice Keyboard 1.3.0"
+            text = "Voice Keyboard 1.4.0"
             textSize = 27f
             setTextColor(0xFF173B70.toInt())
             gravity = Gravity.CENTER
@@ -46,6 +46,7 @@ class MainActivity : Activity() {
             } else requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_AUDIO)
         })
         page.addView(actionButton("Open Feature Store") { startActivity(Intent(this, FeatureStoreActivity::class.java)) })
+        page.addView(actionButton("Smart Learning Dictionary") { startActivity(Intent(this, SmartDictionaryActivity::class.java)) })
         page.addView(actionButton("1. Enable keyboard") { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) })
         page.addView(actionButton("2. Select Voice Keyboard") {
             (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()

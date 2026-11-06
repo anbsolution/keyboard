@@ -16,6 +16,7 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.EditorInfo
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.TextView
@@ -29,6 +30,12 @@ class KeyboardService : InputMethodService(), RecognitionListener {
     private var symbolsMode = false
     private var listening = false
     private var recognizer: SpeechRecognizer? = null
+    private val learningEngine by lazy { WordLearningEngine(applicationContext) }
+    private val pendingWord = StringBuilder()
+    private var pendingPreviousWord = ""
+    private var suggestionContainer: LinearLayout? = null
+    private var suppressUntilWordBoundary = false
+    private var suppressPreviousContextForNextWord = false
 
     private val pink = Color.rgb(237, 139, 183)
     private val lavender = Color.rgb(181, 158, 225)
@@ -80,14 +87,11 @@ class KeyboardService : InputMethodService(), RecognitionListener {
         dock.addView(chip("⚙", .7f, muted, ink, 34) { showSettingsMenu(it) })
         root.addView(dock)
 
-        // Three local text variants; explicitly not marketed as AI prediction.
-        val suggestionRow = row()
-        localSuggestions().forEach { suggestion ->
-            suggestionRow.addView(chip(suggestion.ifBlank { "···" }, 1f, Color.argb(105, 255,255,255), fg, 29) {
-                if (suggestion.isNotBlank()) replacePreviousWord(suggestion)
-            })
-        }
-        root.addView(suggestionRow)
+        // Keep the suggestion strip attached so it can update after every committed edit.
+        val suggestions = row()
+        suggestionContainer = suggestions
+        root.addView(suggestions)
+        renderSuggestionRow(fg)
 
         val numberRow = row()
         "1234567890".forEach { c ->
@@ -109,6 +113,8 @@ class KeyboardService : InputMethodService(), RecognitionListener {
             }
             if (index == 2 && !symbolsMode) line.addView(key("⌫", 1.12f, muted, fg, keyHeight, 15) {
                 currentInputConnection?.deleteSurroundingText(1, 0)
+                if (pendingWord.isNotEmpty() && !suppressUntilWordBoundary) syncPendingWordFromCursor()
+                renderSuggestionRow()
             })
             root.addView(line)
         }
@@ -153,21 +159,100 @@ class KeyboardService : InputMethodService(), RecognitionListener {
         }
 
     private fun localSuggestions(): List<String> {
-        val before = currentInputConnection?.getTextBeforeCursor(80, 0)?.toString().orEmpty()
-        val token = before.takeLastWhile { !it.isWhitespace() }
-        if (token.isBlank()) return listOf("Type", "Voice", "Hindi")
+        val inputType = currentInputEditorInfo?.inputType ?: 0
+        if (!WordLearningLogic.isLearningAllowed(inputType)) return emptyList()
+        val prefs = getSharedPreferences("smart_learning_settings", MODE_PRIVATE)
+        val before = currentInputConnection?.getTextBeforeCursor(120, 0)?.toString().orEmpty()
+        val token = before.takeLastWhile { isWordCharacter(it) }
+        if (token.isBlank()) {
+            if (!prefs.getBoolean("prediction_enabled", true)) return emptyList()
+            val previous = previousWordFrom(before)
+            return learningEngine.suggestions("", previous, 3)
+        }
+        val results = mutableListOf<String>()
+        if (prefs.getBoolean("learning_enabled", true)) results += learningEngine.suggestions(token, limit = 3)
+        if (prefs.getBoolean("correction_enabled", true)) results += learningEngine.correctionCandidates(token, 3)
         val cap = token.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-        return listOf(token, cap, token.uppercase(Locale.getDefault())).distinct().take(3).let {
-            when (it.size) { 1 -> listOf(it[0], "", ""); 2 -> listOf(it[0], it[1], ""); else -> it }
+        results += listOf(token, cap, token.uppercase(Locale.getDefault()))
+        return results.distinct().take(3)
+    }
+
+    private fun renderSuggestionRow(textColor: Int? = null) {
+        val target = suggestionContainer ?: return
+        target.removeAllViews()
+        val color = textColor ?: run {
+            val themeName = getSharedPreferences("keyboard_prefs", MODE_PRIVATE)
+                .getString("ultra_theme", "Pink Lavender") ?: "Pink Lavender"
+            when (themeName) {
+                "Royal Blue", "Midnight" -> Color.WHITE
+                else -> ink
+            }
+        }
+        localSuggestions().forEach { suggestion ->
+            target.addView(chip(suggestion, 1f, Color.argb(105, 255, 255, 255), color, 29) {
+                if (suggestion.isNotBlank()) replacePreviousWord(suggestion)
+            })
+        }
+        target.visibility = if (target.childCount == 0) View.GONE else View.VISIBLE
+    }
+
+    private fun syncPendingWordFromCursor() {
+        val before = currentInputConnection?.getTextBeforeCursor(160, 0)?.toString() ?: return
+        val token = before.takeLastWhile { isWordCharacter(it) }
+        if (token.isNotEmpty()) {
+            pendingWord.setLength(0)
+            pendingWord.append(token)
+            pendingPreviousWord = previousWordFrom(before.dropLast(token.length))
+        } else {
+            pendingWord.setLength(0)
+        }
+    }
+
+    private fun isWordCharacter(char: Char): Boolean {
+        val type = Character.getType(char)
+        return char.isLetterOrDigit() || type == Character.NON_SPACING_MARK.toInt() ||
+            type == Character.COMBINING_SPACING_MARK.toInt() || type == Character.ENCLOSING_MARK.toInt() ||
+            char == '\'' || char == '’'
+    }
+
+    private fun previousWordFrom(text: String): String =
+        text.trimEnd().takeLastWhile { isWordCharacter(it) }.trim('\'', '’')
+
+    private fun observeTypedText(value: String, beforeCursor: String) {
+        value.forEach { char ->
+            if (suppressUntilWordBoundary) {
+                if (!isWordCharacter(char)) {
+                    suppressUntilWordBoundary = false
+                    suppressPreviousContextForNextWord = true
+                }
+            } else if (isWordCharacter(char)) {
+                if (pendingWord.isEmpty() && pendingPreviousWord.isBlank()) {
+                    pendingPreviousWord = if (suppressPreviousContextForNextWord) "" else previousWordFrom(beforeCursor)
+                    suppressPreviousContextForNextWord = false
+                }
+                pendingWord.append(char)
+            } else if (pendingWord.isNotEmpty()) {
+                val completed = pendingWord.toString().trim('\'', '’')
+                if (completed.isNotBlank() && completed.any { it.isLetter() }) {
+                    learningEngine.learn(completed, pendingPreviousWord)
+                    pendingPreviousWord = completed
+                }
+                pendingWord.setLength(0)
+            }
         }
     }
 
     private fun replacePreviousWord(value: String) {
         val c = currentInputConnection ?: return
-        val before = c.getTextBeforeCursor(100, 0)?.toString().orEmpty()
-        val token = before.takeLastWhile { !it.isWhitespace() }
+        val before = c.getTextBeforeCursor(120, 0)?.toString().orEmpty()
+        val token = before.takeLastWhile { isWordCharacter(it) }
+        val context = before.dropLast(token.length)
         if (token.isNotEmpty()) c.deleteSurroundingTextInCodePoints(token.codePointCount(0, token.length), 0)
         c.commitText(value, 1)
+        pendingWord.setLength(0)
+        pendingWord.append(value)
+        pendingPreviousWord = previousWordFrom(context)
+        renderSuggestionRow()
     }
 
     private fun showSettingsMenu(anchor: View) {
@@ -180,6 +265,9 @@ class KeyboardService : InputMethodService(), RecognitionListener {
             menu.add("Key height: Compact").setOnMenuItemClickListener { prefs.edit().putInt("ultra_key_height", 40).apply(); refreshKeyboard(); true }
             menu.add("Key height: Standard").setOnMenuItemClickListener { prefs.edit().putInt("ultra_key_height", 44).apply(); refreshKeyboard(); true }
             menu.add("Key height: Large").setOnMenuItemClickListener { prefs.edit().putInt("ultra_key_height", 50).apply(); refreshKeyboard(); true }
+            menu.add("Smart Learning Dictionary").setOnMenuItemClickListener {
+                startActivity(Intent(this, SmartDictionaryActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+            }
             show()
         }
     }
@@ -219,7 +307,7 @@ class KeyboardService : InputMethodService(), RecognitionListener {
         if (updated.isEmpty()) { Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show(); return }
         PopupMenu(this, anchor).apply {
             updated.take(KeyboardFeatures.MAX_CLIPBOARD_ITEMS).forEach { value ->
-                menu.add(value.replace("\n", " ").take(32)).setOnMenuItemClickListener { commitText(value); true }
+                menu.add(value.replace("\n", " ").take(32)).setOnMenuItemClickListener { commitText(value, learn = false); true }
             }
             show()
         }
@@ -249,7 +337,68 @@ class KeyboardService : InputMethodService(), RecognitionListener {
         } catch (_: Exception) { listening = false; refreshKeyboard(); Toast.makeText(this, "Could not start voice recognition", Toast.LENGTH_SHORT).show() }
     }
     private fun stopVoice() { recognizer?.stopListening(); listening = false; refreshKeyboard() }
-    private fun commitText(value: String) { currentInputConnection?.commitText(value, 1) }
+    private fun commitText(value: String, learn: Boolean = true) {
+        val connection = currentInputConnection ?: return
+        val prefs = getSharedPreferences("smart_learning_settings", MODE_PRIVATE)
+        val allowed = learn && prefs.getBoolean("learning_enabled", true) &&
+            WordLearningLogic.isLearningAllowed(currentInputEditorInfo?.inputType ?: 0)
+        if (!learn) {
+            // Clipboard content is never learned or used as previous-word context.
+            pendingWord.setLength(0)
+            pendingPreviousWord = ""
+            suppressPreviousContextForNextWord = true
+            suppressUntilWordBoundary = value.lastOrNull()?.let { isWordCharacter(it) } == true
+            connection.commitText(value, 1)
+            renderSuggestionRow()
+            return
+        }
+        if (allowed) {
+            val before = connection.getTextBeforeCursor(160, 0)?.toString().orEmpty()
+            observeTypedText(value, before)
+        } else {
+            pendingWord.setLength(0)
+            pendingPreviousWord = ""
+            suppressUntilWordBoundary = false
+            suppressPreviousContextForNextWord = false
+        }
+        connection.commitText(value, 1)
+        if (allowed && !suppressUntilWordBoundary) {
+            syncPendingWordFromCursor()
+        } else {
+            pendingWord.setLength(0)
+            pendingPreviousWord = ""
+        }
+        renderSuggestionRow()
+    }
+
+    private fun finalizePendingWord() {
+        val enabled = getSharedPreferences("smart_learning_settings", MODE_PRIVATE)
+            .getBoolean("learning_enabled", true)
+        val allowed = WordLearningLogic.isLearningAllowed(currentInputEditorInfo?.inputType ?: 0)
+        val finalWord = pendingWord.toString().trim('\'', '’')
+        if (enabled && allowed && !suppressUntilWordBoundary && finalWord.isNotBlank() && finalWord.any { it.isLetter() }) {
+            learningEngine.learn(finalWord, pendingPreviousWord)
+        }
+        pendingWord.setLength(0)
+        pendingPreviousWord = ""
+        suppressUntilWordBoundary = false
+        suppressPreviousContextForNextWord = false
+    }
+
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        finalizePendingWord()
+        super.onStartInput(attribute, restarting)
+        pendingWord.setLength(0)
+        pendingPreviousWord = ""
+        suppressUntilWordBoundary = false
+        suppressPreviousContextForNextWord = false
+        renderSuggestionRow()
+    }
+
+    override fun onFinishInput() {
+        finalizePendingWord()
+        super.onFinishInput()
+    }
     private fun sendEnter() {
         val c: InputConnection = currentInputConnection ?: return
         c.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))

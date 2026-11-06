@@ -48,7 +48,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: voice-keyboard-v1.3.2-debug-apk
+          name: voice-keyboard-v1.4.0-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 90
