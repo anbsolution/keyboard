@@ -52,7 +52,7 @@ class KeyboardService : InputMethodService(), RecognitionListener {
         toolbar.addView(key(if (listening) "■ Stop" else "🎙 Voice", 1.4f, keyBg, fg) {
             if (listening) stopVoice() else startVoice()
         })
-        toolbar.addView(key("📋", .8f, keyBg, fg) { showClipboardMenu() })
+        toolbar.addView(key("📋", .8f, keyBg, fg) { anchor -> showClipboardMenu(anchor) })
         toolbar.addView(key("⚙", .8f, keyBg, fg) {
             Toast.makeText(this, "Theme and voice settings are in the Voice Keyboard app", Toast.LENGTH_SHORT).show()
         })
@@ -123,7 +123,7 @@ class KeyboardService : InputMethodService(), RecognitionListener {
 
     private fun clipboard(): ClipboardManager = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
 
-    private fun showClipboardMenu() {
+    private fun showClipboardMenu(anchor: View) {
         val clip = clipboard().primaryClip
         val copied = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(this)?.toString().orEmpty() else ""
         val prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE)
@@ -134,7 +134,6 @@ class KeyboardService : InputMethodService(), RecognitionListener {
             Toast.makeText(this, "Clipboard is empty", Toast.LENGTH_SHORT).show()
             return
         }
-        val anchor = currentInputView ?: return
         PopupMenu(this, anchor).apply {
             updated.take(KeyboardFeatures.MAX_CLIPBOARD_ITEMS).forEach { value ->
                 val label = value.replace("\n", " ").take(32)
